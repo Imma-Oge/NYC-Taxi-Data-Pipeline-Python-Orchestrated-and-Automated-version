@@ -1,6 +1,6 @@
 name: CI Pipeline
 
-# Triggers the workflow on push to ogee_dev and on PRs to main
+# Trigger workflow on pushes to ogee_dev and PRs to main
 on:
   push:
     branches: [ ogee_dev ]
@@ -12,30 +12,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout your code
+      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Setup Python
+      # Step 2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13.6'
+          python-version: '3.10'  # adjust if your project uses a different Python version
 
-      # Step 3: Install dependencies safely
+      # Step 3: Install dependencies including PySpark
       - name: Install dependencies
         run: |
-          # Only install requirements.txt if it exists
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Always install pytest and flake8
-          pip install pytest flake8
+          pip install pytest flake8 pyspark
 
-      # Step 4: Run flake8 (ignore errors for now if no code style issues exist)
+      # Step 4: Run linting with flake8
       - name: Run linting (flake8)
         run: flake8 . || true
 
-      # Step 5: Run pytest (with a fallback if no tests exist)
+      # Step 5: Run PySpark tests with pytest
       - name: Run tests (pytest)
         run: |
           if [ -d tests ]; then pytest tests; else echo "No tests folder found, skipping pytest"; fi
-
