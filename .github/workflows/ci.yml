@@ -1,0 +1,41 @@
+name: CI Pipeline
+
+# Trigger workflow on pushes to ogee_dev and PRs to main
+on:
+  push:
+    branches: [ ogee_dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.6'  # adjust if needed
+
+      # Step 3: Install dependencies (PySpark + pytest + flake8)
+      - name: Install dependencies
+        run: |
+          # Install from requirements.txt if exists
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest flake8 pyspark
+
+      # Step 4: Run linting (flake8) — fail pipeline on errors
+      - name: Run linting (flake8)
+        run:  | 
+          flake8 . --ignore=W391
+      
+
+      # Step 5: Run tests (pytest) — fail pipeline on errors
+      - name: Run tests (pytest)
+        run: |
+          if [ -d tests ]; then pytest tests; else echo "No tests folder found, skipping pytest"; fi
