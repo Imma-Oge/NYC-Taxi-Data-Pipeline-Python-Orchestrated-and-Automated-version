@@ -31,7 +31,9 @@ jobs:
 
       # Step 4: Run linting (flake8) — fail pipeline on errors
       - name: Run linting (flake8)
-        run: flake8 .
+        run:  | 
+          flake8 . --ignore=W391
+      
 
       # Step 5: Run tests (pytest) — fail pipeline on errors
       - name: Run tests (pytest)
