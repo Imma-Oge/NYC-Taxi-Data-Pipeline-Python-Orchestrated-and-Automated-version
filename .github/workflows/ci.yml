@@ -38,4 +38,8 @@ jobs:
       # Step 5: Run tests (pytest) — fail pipeline on errors
       - name: Run tests (pytest)
         run: |
-          if [ -d tests ]; then pytest tests; else echo "No tests folder found, skipping pytest"; fi
+          if [ -d tests ]; then pytest tests || [ $? -eq 5 ] 
+          else echo "No tests folder found, skipping pytest"; fi
+
+     
+
