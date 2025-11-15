@@ -182,8 +182,7 @@ The CI/CD pipeline follows a branch-based deployment model with automated testin
 
 Workflow Components:
 
-
-* Continuous Integration (ci.yml)
+### Continuous Integration (ci.yml)
 #### Triggers:
     
 Every push to ogee_dev
@@ -198,7 +197,8 @@ Blocks Pull Request merge if tests fail
 #### Purpose: Ensures code quality and prevents broken code from reaching production.
 
 
-* Infrastructure Deployment - Dev (cd_infra_dev.yml)
+
+### Infrastructure Deployment - Dev (cd_infra_dev.yml)
 #### Triggers:
 Push to ogee_dev (only when files in infra/snowflake/** or full_load/ddl.sql change)
 
@@ -213,7 +213,8 @@ Executes DDL scripts to create/update:
 #### Purpose: Automatically provisions and updates database infrastructure in the dev environment.
 
 
-* Infrastructure Deployment - Prod (cd_infra_prod.yml)
+
+### Infrastructure Deployment - Prod (cd_infra_prod.yml)
 #### Triggers:
 Merge to main (only when infrastructure files change)
 
@@ -225,7 +226,8 @@ Optional: Requires manual approval before deployment
 #### Purpose: Maintains production database structure with reviewed and tested changes.
 
 
-* Pipeline Deployment - Dev (cd_pipeline_dev.yml)
+
+### Pipeline Deployment - Dev (cd_pipeline_dev.yml)
 #### Triggers:
 Push to ogee_dev (when orchestration or SQL transformation files change)
 
@@ -236,7 +238,10 @@ Uploads logs if pipeline fails
 
 #### Purpose: Tests data pipeline logic in the dev environment before production deployment.
 
-* Pipeline Deployment - Prod (cd_pipeline_prod.yml)
+
+
+### Pipeline Deployment - Prod (cd_pipeline_prod.yml)
+
 #### Triggers:
 Merge to main (when pipeline code changes)
 Scheduled: Daily at 2 AM UTC (cron: 0 2 * * *)
@@ -250,7 +255,8 @@ Captures and uploads logs on failure
 
 #### Purpose: Runs production data processing workflows automatically and on schedule.
 
-Environment Separation
+
+### Environment Separation:
 | Environment | Branch | Databases              | Warehouse | Purpose |
 |-------------|--------|----------------------- |-----------|----------
 | Development |ogee_dev| FULL_LOAD, INCREMENTAL | DEV_WAREHOUSE| Testing and development
