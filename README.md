@@ -119,20 +119,209 @@ pipeline.log file in VS Code
 #### Retry Logic
 
 ### CI/CD Workflow & Branch Protection Design
-.github/workflows/ci.yml runs:
-pytest
-* flake8
-* dependency installation
-* pull-request validation
-* scheduled jobs (cron)
 
-CI runs on every push to the dev branch (ogee_dev)
-CI Workflow Summary:
+#### CI/CD Workflow & Deployment Pipeline
+This project implements a comprehensive CI/CD strategy using GitHub Actions with separate workflows for continuous integration, infrastructure deployment, and pipeline execution across development and production environments.
+Workflow Architecture
+The CI/CD pipeline follows a branch-based deployment model with automated testing, infrastructure provisioning, and scheduled production runs.
+
 ```
+┌─────────────────────────────────────┐
+│  Work on ogee_dev branch            │
+│  (Development Environment)          │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+     ┌─────────────────────┐
+     │ Push to ogee_dev    │
+     └─────────┬───────────┘
+               │
+               ├─────────────────┬──────────────────┐
+               │                 │                  │
+               ▼                 ▼                  ▼
+        ┌──────────┐      ┌────────────┐    ┌─────────────┐
+        │ ci.yml   │      │cd_infra_   │    │cd_pipeline_ │
+        │ runs     │      │dev.yml     │    │dev.yml      │
+        │ (tests)  │      │(if infra   │    │(if pipeline │
+        └──────────┘      │changed)    │    │changed)     │
+                          └────────────┘    └─────────────┘
+               │
+               ▼
+     ┌─────────────────────┐
+     │ Create Pull Request │
+     │   to main           │
+     └─────────┬───────────┘
+               │
+               ▼
+     ┌─────────────────────┐
+     │ ci.yml runs on PR   │
+     │ (validates code)    │
+     └─────────┬───────────┘
+               │
+               ▼
+     ┌─────────────────────┐
+     │ Merge to main       │
+     │ (Production Deploy) │
+     └─────────┬───────────┘
+               │
+               ├─────────────────┬──────────────────┐
+               │                 │                  │
+               ▼                 ▼                  ▼
+        ┌──────────┐      ┌────────────┐    ┌─────────────┐
+        │ CI passes│      │cd_infra_   │    │cd_pipeline_ │
+        │          │      │prod.yml    │    │prod.yml     │
+        │          │      │(if infra   │    │(if pipeline │
+        │          │      │changed)    │    │changed)     │
+        └──────────┘      └────────────┘    └──────┬──────┘
+                                                    │
+                                                    ├─────────────────┐
+                                                    │                 │
+                                              On merge        Scheduled run
+                                                              (Daily 2 AM UTC)
 ```
+
+Workflow Components:
+
+
+* Continuous Integration (ci.yml)
+#### Triggers:
+    
+Every push to ogee_dev
+Pull requests to main
+
+#### Actions:
+Runs pytest for unit and integration tests
+Executes flake8 linting for code quality
+Validates dependencies installation
+Blocks Pull Request merge if tests fail
+
+#### Purpose: Ensures code quality and prevents broken code from reaching production.
+
+
+* Infrastructure Deployment - Dev (cd_infra_dev.yml)
+#### Triggers:
+Push to ogee_dev (only when files in infra/snowflake/** or full_load/ddl.sql change)
+
+#### Actions:
+
+Connects to Snowflake dev environment
+Executes DDL scripts to create/update:
+* Databases
+* Schemas
+* Tables
+
+#### Purpose: Automatically provisions and updates database infrastructure in the dev environment.
+
+
+* Infrastructure Deployment - Prod (cd_infra_prod.yml)
+#### Triggers:
+Merge to main (only when infrastructure files change)
+
+#### Actions:
+Deploys infrastructure changes to production Snowflake environment
+Uses production credentials and warehouse
+Optional: Requires manual approval before deployment
+
+#### Purpose: Maintains production database structure with reviewed and tested changes.
+
+
+* Pipeline Deployment - Dev (cd_pipeline_dev.yml)
+#### Triggers:
+Push to ogee_dev (when orchestration or SQL transformation files change)
+
+#### Actions:
+Runs the Python orchestration pipeline (orchestration/main.py)
+Executes ELT workflows against dev databases
+Uploads logs if pipeline fails
+
+#### Purpose: Tests data pipeline logic in the dev environment before production deployment.
+
+* Pipeline Deployment - Prod (cd_pipeline_prod.yml)
+#### Triggers:
+Merge to main (when pipeline code changes)
+Scheduled: Daily at 2 AM UTC (cron: 0 2 * * *)
+Manual trigger via GitHub UI (workflow_dispatch)
+
+#### Actions:
+Executes production ELT pipeline
+Processes NYC taxi data through Bronze → Silver → Gold layers
+Updates metadata tables
+Captures and uploads logs on failure
+
+#### Purpose: Runs production data processing workflows automatically and on schedule.
+
+Environment Separation
+| Environment | Branch | Databases              | Warehouse | Purpose |
+|-------------|--------|----------------------- |-----------|----------
+| Development |ogee_dev| FULL_LOAD, INCREMENTAL | DEV_WAREHOUSE| Testing and development
+| Production  |main    |PROD_FULL_LOAD, PROD_INCREMENTAL| PROD_WAREHOUSE| Live data processing
+
+
+ 
+#### Branch Protection Rules:
+Applied to the main branch to ensure production stability:
+Rule  |  Purpose|
+|------|---------
+|Require pull request before merging |Prevents direct pushes to main
+|Require status checks to pass |CI must pass before merge
+|Require code review approval |Peer review ensures quality
+|Reject merge on CI failure |Guarantees pipeline integrity
+
+Result: Code cannot reach production unless it passes all tests, linting, and receives approval.
+
+Deployment Flow Summary
+
+#### Development Phase:
+* Work on ogee_dev branch
+* Every push triggers CI tests
+* Infrastructure and pipeline changes auto-deploy to dev environment
+* Validate changes in dev before promoting to prod
+
+
+#### Promotion to Production:
+* Create pull request from ogee_dev to main
+* CI runs again on PR to validate
+* Code review and approval required
+* Merge triggers production deployment
+
+
+#### Production Execution:
+* Infrastructure changes deploy automatically (if any)
+* Pipeline runs on merge (if code changed)
+* Pipeline also runs daily at 2 AM UTC for scheduled data processing
+
+This approach ensures:
+
+* Automated testing catches bugs early
+* Infrastructure and code changes are tracked separately
+* Dev environment mirrors production for safe testing
+* Production deployments are controlled and reviewable
+* Scheduled runs keep data fresh without manual intervention
+
+#### GitHub Secrets Configuration
+The workflows require the following secrets (configured in GitHub Settings → Secrets):
+Shared:
+
+SNOWFLAKE_ACCOUNT
+
+Development:
+* SNOWFLAKE_DEV_USER
+* SNOWFLAKE_DEV_PASSWORD
+* SNOWFLAKE_DEV_ROLE
+* SNOWFLAKE_DEV_WAREHOUSE
+
+Production:
+* SNOWFLAKE_PROD_USER
+* SNOWFLAKE_PROD_PASSWORD
+* SNOWFLAKE_PROD_ROLE
+* SNOWFLAKE_PROD_WAREHOUSE
+
+This secrets-based approach ensures credentials are never exposed in code and can be rotated independently per environment.
 
 #### Branch Protection Rules:
+
 Applied to main branch
+
 | Rule        | Purpose    |
 |-------------|------------|
 | Require PR before merging  | Prevents direct pushes
